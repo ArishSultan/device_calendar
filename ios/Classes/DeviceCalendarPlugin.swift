@@ -136,6 +136,8 @@ public class DeviceCalendarPlugin: DeviceCalendarPluginBase, FlutterPlugin {
     let deleteEventMethod = "deleteEvent"
     let deleteEventInstanceMethod = "deleteEventInstance"
     let showEventModalMethod = "showiOSEventModal"
+    let startCalendarMonitoringMethod = "startCalendarMonitoring"
+    let calendarChangedMethod = "calendarChanged"
     let calendarIdArgument = "calendarId"
     let startDateArgument = "startDate"
     let endDateArgument = "endDate"
@@ -176,6 +178,8 @@ public class DeviceCalendarPlugin: DeviceCalendarPluginBase, FlutterPlugin {
     let eventStatusArgument = "eventStatus"
     let validFrequencyTypes = [EKRecurrenceFrequency.daily, EKRecurrenceFrequency.weekly, EKRecurrenceFrequency.monthly, EKRecurrenceFrequency.yearly]
     
+    var initialized = false
+    var channel: FlutterMethodChannel?
     var flutterResult : FlutterResult?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
@@ -185,6 +189,8 @@ public class DeviceCalendarPlugin: DeviceCalendarPluginBase, FlutterPlugin {
             let channel = FlutterMethodChannel(name: channelName, binaryMessenger: registrar.messenger())
 #endif
             let instance = DeviceCalendarPlugin()
+            instance.channel = channel
+
             registrar.addMethodCallDelegate(instance, channel: channel)
         }
 
@@ -208,8 +214,25 @@ public class DeviceCalendarPlugin: DeviceCalendarPluginBase, FlutterPlugin {
                 createCalendar(call, result)
             case deleteCalendarMethod:
                 deleteCalendar(call, result)
+            case startCalendarMonitoringMethod:
+                startMonitoringCalendar(result)
             default:
                 result(FlutterMethodNotImplemented)
+            }
+        }
+
+        private func startMonitoringCalendar(_ result: @escaping FlutterResult) {
+            checkPermissionsThenExecute(permissionsGrantedAction: {
+                if !self.initialized {
+                    NotificationCenter.default.addObserver(self, selector: #selector(self.storeChanged), name: .EKEventStoreChanged, object: eventStore)
+                    self.initialized = true
+               }
+            }, result: result)
+        }
+
+        @objc func storeChanged() {
+            DispatchQueue.main.async {
+                self.channel?.invokeMethod(self.calendarChangedMethod, arguments: nil)
             }
         }
 

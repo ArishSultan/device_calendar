@@ -32,6 +32,32 @@ class DeviceCalendarPlugin {
   @visibleForTesting
   DeviceCalendarPlugin.private();
 
+  /// Monitors Calendar changes, it triggers a callback whenever the native
+  /// calendar/reminder changes.
+  ///
+  /// It only works on iOS and MacOS for now, behind the scenes it uses
+  /// `NotificationCenter` API of darwin platform to listen to calendar changes.
+  ///
+  /// Only one listener can be attached at one, time if this function is called
+  /// twice with different callbacks then only the later callback will be considered.
+  Future<Result<void>> startCalendarMonitoring(VoidCallback callback) async {
+    // Remove previously attached handler if any.
+    channel.setMethodCallHandler(null);
+
+    // Attach the call handler to this function.
+    channel.setMethodCallHandler((call) async {
+      if (call.method != ChannelConstants.methodNameCalendarChanged) {
+        return;
+      }
+
+      callback();
+    });
+
+    return _invokeChannelMethod(
+      ChannelConstants.methodNameStartCalendarMonitoring,
+    );
+  }
+
   /// Requests permissions to modify the calendars on the device
   ///
   /// Returns a [Result] indicating if calendar READ and WRITE permissions
